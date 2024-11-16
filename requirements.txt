@@ -4,3 +4,4 @@ rich
 db-sqlite3
 pillow
 numpy
+flask
