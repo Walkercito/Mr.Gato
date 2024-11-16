@@ -21,7 +21,7 @@ def index():
 
 # Función principal
 def main():
-    TOKEN = os.environ["TOKEN"]
+    TOKEN = os.environ["BOT_TOKEN"]
 
     # Inicializar el bot de Discord
     bot = commands.Bot(command_prefix=".", intents=discord.Intents.all())
