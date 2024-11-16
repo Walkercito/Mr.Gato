@@ -3,3 +3,4 @@ python-dotenv
 rich
 db-sqlite3
 pillow
+numpy
