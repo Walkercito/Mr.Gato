@@ -2,3 +2,4 @@ discord.py
 python-dotenv
 rich
 db-sqlite3
+pillow
