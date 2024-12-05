@@ -6,14 +6,15 @@ from datetime import datetime
 from discord.ext import commands, tasks
 from discord import app_commands
 
+
 class Birthday(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.create_database()
         self.check_birthdays.start()
 
+    
     def create_database(self):
-        """Crear la base de datos y la tabla si no existe"""
         try:
             conn = sqlite3.connect('data/birthdays.db')
             cursor = conn.cursor()
@@ -31,6 +32,7 @@ class Birthday(commands.Cog):
         finally:
             conn.close()
 
+    
     def get_month_number(self, month_name):
         months = {
             "January": 1, "February": 2, "March": 3, "April": 4,
@@ -39,13 +41,12 @@ class Birthday(commands.Cog):
         }
         return months.get(month_name)
 
+    
     async def send_birthday_message(self, guild: discord.Guild, member: discord.Member, birth_year: int):
-        """Enviar mensaje de felicitación de cumpleaños"""
-        # Buscar primero el canal general
         general_channel = discord.utils.get(guild.text_channels, name='general')
         if not general_channel:
-            # Si no hay canal general, usar el canal del sistema
             general_channel = guild.system_channel
+        
         
         if general_channel:
             age = datetime.now().year - birth_year
@@ -63,7 +64,23 @@ class Birthday(commands.Cog):
                                           "July", "August", "September", "October", "November", "December"], 
                       year: int):
         try:
-            # Validar el día según el mes
+            conn = sqlite3.connect('data/birthdays.db')
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT day, month, year FROM birthdays WHERE user_id = ?', (interaction.user.id,))
+            existing_birthday = cursor.fetchone()
+            
+            if existing_birthday:
+                day, month, year = existing_birthday
+                embed = discord.Embed(
+                    title="Birthday Already Set! 🎂",
+                    description=f"Your birthday is already set to: {month} {day}, {year}\nUse /updatebirthday if you need to change it.",
+                    colour=discord.Colour.yellow(),
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                conn.close()
+                return
+
             month_days = {
                 1: 31, 2: 29 if year % 4 == 0 else 28, 3: 31, 4: 30,
                 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
@@ -78,7 +95,6 @@ class Birthday(commands.Cog):
                 )
                 return
 
-            # Validar el año
             current_year = datetime.now().year
             if not (1900 <= year <= current_year):
                 await interaction.response.send_message(
@@ -87,10 +103,6 @@ class Birthday(commands.Cog):
                 )
                 return
 
-            # Guardar en la base de datos
-            conn = sqlite3.connect('data/birthdays.db')
-            cursor = conn.cursor()
-            
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS birthdays (
                     user_id INTEGER PRIMARY KEY,
@@ -116,10 +128,8 @@ class Birthday(commands.Cog):
             
             await interaction.response.send_message(embed=embed)
 
-            # Verificar si hoy es el cumpleaños
             now = datetime.now()
             if now.day == day and now.strftime("%B") == month:
-                # Esperar un momento para que el mensaje de confirmación se envíe primero
                 await asyncio.sleep(1)
                 await self.send_birthday_message(interaction.guild, interaction.user, year)
             
@@ -136,6 +146,7 @@ class Birthday(commands.Cog):
                 ephemeral=True
             )
 
+    
     @tasks.loop(hours=24)
     async def check_birthdays(self):
         try:
@@ -164,6 +175,7 @@ class Birthday(commands.Cog):
         except Exception as e:
             print(f"Error in check_birthdays: {e}")
 
+    
     @check_birthdays.before_loop
     async def before_check_birthdays(self):
         await self.bot.wait_until_ready()
@@ -173,8 +185,10 @@ class Birthday(commands.Cog):
             next_run = next_run.replace(day=now.day + 1)
         await discord.utils.sleep_until(next_run)
 
+    
     def cog_unload(self):
         self.check_birthdays.cancel()
+
 
 async def setup(bot):
     await bot.add_cog(Birthday(bot))
