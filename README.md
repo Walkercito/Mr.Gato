@@ -5,3 +5,4 @@ It used to be a Discord AI-powered bot capable of interacting with the users and
 Rigth know as the developvent slowly goes, it can:
 - Register birthdays and show them at that date
 - Welcome new users with a personalized message and image
+- Music system, for now it only supports YouTube search and links, but in the future Spotify, SoundCloud and Deezer will be added
