@@ -1,9 +1,10 @@
+import re
 import discord
 import asyncio
-import ffmpeg
 import yt_dlp
 from rich import print
 from discord.ext import commands
+from discord import app_commands
 from rich.console import Console
 
 from settings import YTDL_OPTIONS, ffmpeg_options
@@ -13,8 +14,12 @@ console = Console()
 def search_youtube(query: str) -> dict:
     with yt_dlp.YoutubeDL(YTDL_OPTIONS) as  ytdl:
         try:
-            info = ytdl.extract_info(f'ytsearch:{query}', download = False)
-            return info['entries'][0] if info else None
+            if re.match(r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+', query, re.IGNORECASE):
+                info = ytdl.extract_info(query, download = False)
+                return info
+            else:
+                info = ytdl.extract_info(f'ytsearch:{query}', download = False)
+                return info['entries'][0] if info else None
 
         except Exception as e:
             console.print(f"[bold red]Fatal error:[/bold red] {e}")
@@ -38,7 +43,7 @@ class MusicStream(commands.Cog):
             self.disconnect_timer.cancel()
 
 
-    @commands.hybrid_command(name='join', description='Joins to the current VC you\'re in.')
+    @commands.hybrid_command(name = 'join', description = 'Joins to the current VC you\'re in.')
     async def join_vc(self, ctx: commands.Context):
         await ctx.defer(ephemeral = True)
 
@@ -78,14 +83,15 @@ class MusicStream(commands.Cog):
 
     
     @commands.hybrid_command(name = 'play', description = 'Starts playing a song or adds one to the queue.')
-    async def play_track(self, ctx: commands.Context, query: str):
+    @app_commands.describe(song = 'The name or the link of the song you want to listen')
+    async def play_track(self, ctx: commands.Context, song: str):
         await ctx.defer(ephemeral = True)
 
         if not ctx.author.voice:
             await ctx.send("*You must be inside of a VC to use this.*", ephemeral = True)
             return
 
-        track = search_youtube(query)
+        track = search_youtube(song)
         if not track:
             await ctx.send('❌ Couldn\'t find any results right now.', ephemeral = True)
             return

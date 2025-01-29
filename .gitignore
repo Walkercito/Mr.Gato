@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 .env
 __pycache__/settings.cpython-312.pyc
+.env
+cookies.txt
