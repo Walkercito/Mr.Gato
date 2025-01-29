@@ -1,27 +1,27 @@
 #!/bin/bash
 
-# Script para instalar FFmpeg en GitHub Codespace
-set -e # Termina el script inmediatamente si ocurre algún error
+# script to set up FFmpeg in a GitHub Codespace
+set -e
 
-echo "🔄 Verificando si FFmpeg está instalado..."
+echo "🔄 Checking if FFmpeg is installed..."
 if ! command -v ffmpeg &> /dev/null; then
-    echo "⚠️ FFmpeg no encontrado. Iniciando instalación..."
+    echo "⚠️ FFmpeg not found. Starting installation..."
     
     # Actualizar lista de paquetes
-    echo "🔄 Actualizando lista de paquetes..."
+    echo "🔄 Updating pkgs..."
     sudo apt-get update -q
     
     # Instalar FFmpeg
-    echo "📦 Instalando FFmpeg..."
+    echo "📦 Installing FFmpeg..."
     sudo apt-get install -qq -y ffmpeg
     
-    echo "✅ FFmpeg instalado correctamente."
+    echo "✅ FFmpeg installed correctly."
 else
-    echo "✅ FFmpeg ya está instalado."
+    echo "✅ FFmpeg is already installed."
 fi
 
 # Verificar versión instalada
-echo "\n🔍 Versión de FFmpeg instalada:"
+echo "\n🔍 FFmpeg version installed:"
 ffmpeg -version | head -n 1
 
-echo "\n🎉 ¡Configuración completada! FFmpeg está listo para usar."
+echo "\n🎉 Config completed! FFmpeg is ready to use."
