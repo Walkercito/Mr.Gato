@@ -12,18 +12,26 @@ from settings import YTDL_OPTIONS, ffmpeg_options
 
 console = Console()
 def search_youtube(query: str) -> dict:
-    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as  ytdl:
+    with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ytdl:
         try:
-            if re.match(r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+', query, re.IGNORECASE):
+            if re.match(r'^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+', query, re.IGNORECASE):
                 info = ytdl.extract_info(query, download = False)
                 return info
             else:
                 info = ytdl.extract_info(f'ytsearch:{query}', download = False)
                 return info['entries'][0] if info else None
-
+        
+        except yt_dlp.utils.DownloadError as e:
+            print(f"[bold red]YouTube Download Error:[/bold red] {e}")
+        
         except Exception as e:
-            console.print(f"[bold red]Fatal error:[/bold red] {e}")
-            return None
+            print(f"[bold red]Fatal error:[/bold red] {e}")
+        return None
+
+
+def format_duration(seconds):
+    minutes, secs = divmod(seconds, 60)
+    return f'{minutes:02d}:{secs:02d}'
 
 
 class MusicStream(commands.Cog):
@@ -31,71 +39,106 @@ class MusicStream(commands.Cog):
         self.bot = bot
         self.voice_client = None
         self.disconnect_timer = None
-
+        
         self.queue = []
         self.current_track = None
         self.is_playing = False
         self.is_paused = False
-
+    
     
     async def cog_unload(self):
         if self.disconnect_timer:
             self.disconnect_timer.cancel()
-
-
+    
+    
     @commands.hybrid_command(name = 'join', description = 'Joins to the current VC you\'re in.')
     async def join_vc(self, ctx: commands.Context):
         await ctx.defer(ephemeral = True)
-
+        
         if not ctx.author.voice:
-            await ctx.send("*You must be inside of a VC to use this.*", ephemeral = True)
+            embed = discord.Embed(
+                title = '❌ Oops!',
+                description = 'You must be inside of a VC to use this.',
+                colour = discord.Colour.red()
+            )
+            await ctx.send(embed = embed, ephemeral = True)
             return
         
         channel = ctx.author.voice.channel
-
         if self.voice_client:
             if self.voice_client.channel == channel:
-                await ctx.send(f'I\'m already in the VC, use **/play** or **{self.bot.command_prefix}play** followed by the link or the name of a song to start playing!', ephemeral=True)
+                embed = discord.Embed(
+                    title = '🎧 I\'m here!',
+                    description = f'I\'m already in the VC, use **/play** or **{self.bot.command_prefix}play** followed by the link or the name of a song to start playing!',
+                    colour = discord.Colour.purple()
+                )
+                await ctx.send(embed = embed, ephemeral = True)
                 return
             else:
                 await self.voice_client.move_to(channel)
         else:
             self.voice_client = await channel.connect()
         
-        await ctx.send(f'🔊 Connected to **{channel.name}**, use **/play** or **{self.bot.command_prefix}play** followed by the link or the name of a song to start playing!', ephemeral=True)
+        embed = discord.Embed(
+            title = f'🔊 Connected to {channel.name}',
+            description = f'Use **/play** or **{self.bot.command_prefix}play** followed by the link or the name of a song to start playing it.',
+            colour = discord.Colour.dark_purple()
+        )
+        await ctx.send(embed = embed, ephemeral = False)
     
     
     @commands.hybrid_command(name = 'leave', description = 'Takes out the bot of the current VC.')
     async def leave_vc(self, ctx: commands.Context):
+        await ctx.defer(ephemeral = True)
+
         if self.voice_client:
-            channel = ctx.author.voice.channel
+            channel_name = self.voice_client.channel.name
+
             if self.voice_client.is_playing() or self.voice_client.is_paused():
                 self.voice_client.stop()
+            
             await self.voice_client.disconnect()
             self.voice_client = None
             self.is_playing = False
             self.is_paused = False
             self.queue.clear()
-            await ctx.send(f'🔇 Disconnected from **{channel.name}**.')
-        
+            
+            embed = discord.Embed(
+                title = '🔇 Disconnected',
+                description = f'from **{channel_name}**.',
+                colour = discord.Colour.purple()
+            )
+            await ctx.send(embed = embed, ephemeral = False)
         else:
-            await ctx.send('🤖 **I\'m not in a VC.**')
-
+            embed = discord.Embed(
+                title = '🤖 Not in VC',
+                description = 'I\'m not in a VC.',
+                colour = discord.Colour.red()
+            )
+            await ctx.send(embed = embed, ephemeral = True)
+    
     
     @commands.hybrid_command(name = 'play', description = 'Starts playing a song or adds one to the queue.')
     @app_commands.describe(song = 'The name or the link of the song you want to listen')
     async def play_track(self, ctx: commands.Context, song: str):
         await ctx.defer(ephemeral = True)
-
         if not ctx.author.voice:
-            await ctx.send("*You must be inside of a VC to use this.*", ephemeral = True)
+            embed = discord.Embed(
+                title = '❌ Oops!',
+                description = 'You must be inside of a VC to use this.',
+                colour = discord.Colour.red()
+            )
+            await ctx.send(embed = embed, ephemeral = True)
             return
-
         track = search_youtube(song)
         if not track:
-            await ctx.send('❌ Couldn\'t find any results right now.', ephemeral = True)
+            embed = discord.Embed(
+                title = '❌ No Results',
+                description = 'Couldn\'t find any results right now.',
+                colour = discord.Colour.red()
+            )
+            await ctx.send(embed = embed, ephemeral = True)
             return
-
         self.queue.append(
             {
                 'title': track['title'],
@@ -103,35 +146,88 @@ class MusicStream(commands.Cog):
                 'duration': track['duration']
             }
         )
-        await ctx.send(f'✅ Added to the queue **{track['title']}**.')
+        formatted_duration = format_duration(track['duration'])
+        embed = discord.Embed(
+            title = '✅ Added to Queue',
+            description = f'**{track["title"]}**\nDuration: {formatted_duration}',
+            colour = discord.Colour.pink()
+        )
+        await ctx.send(embed = embed)
+        
         if not self.is_playing:
             await self.play_next(ctx)
-
+    
     
     @commands.hybrid_command(name = 'pause', description = 'Pauses the current song.')
     async def pause_track(self, ctx: commands.Context):
         if self.voice_client and self.is_playing:
             self.voice_client.pause()
             self.is_paused = True
-            await ctx.send('⏸️ Song paused')
 
-
+            formatted_duration = format_duration(self.current_track['duration'])
+            embed = discord.Embed(
+                title = '⏸️ Paused',
+                description = f'{self.current_track["title"]}\nDuration: {formatted_duration}',
+                colour = discord.Colour.orange()
+            )
+            await ctx.send(embed = embed)
+    
+    
     @commands.hybrid_command(name = 'resume', description = 'Continue playing the current song.')
     async def resume_track(self, ctx: commands.Context):
         if self.voice_client and self.is_paused:
             self.voice_client.resume()
             self.is_paused = False
             self.is_playing = True
-            await ctx.send(f'🎶 Continue playing: **{self.current_track['title']}**.')
 
-
+            formatted_duration = format_duration(self.current_track['duration'])
+            embed = discord.Embed(
+                title = '🎶 Continue playing',
+                description = f'**{self.current_track["title"]}**\nDuration: {formatted_duration}',
+                colour = discord.Colour.purple()
+            )
+            await ctx.send(embed = embed)
+    
+    
     @commands.hybrid_command(name = 'skip', description = 'Jumps to the next song in the queue.')
-    async def skip_tack(self, ctx: commands.Context):
+    async def skip_track(self, ctx: commands.Context):
         if self.voice_client and (self.is_paused or self.is_playing):
             self.voice_client.stop()
-            await ctx.send('⏭️ Song skiped')
+            
+            formatted_duration = format_duration(self.current_track['duration'])
+            embed = discord.Embed(
+                title = '⏭️ Skipped',
+                description = f'{self.current_track["title"]}\nDuration: {formatted_duration}',
+                colour = discord.Colour.orange()
+            )
+            await ctx.send(embed = embed)
+    
+    
+    @commands.hybrid_command(name = 'queue', description = 'Shows the current music queue.')
+    async def show_queue(self, ctx: commands.Context):
+        if not self.queue:
+            embed = discord.Embed(
+                title = '🎶 Queue',
+                description = 'The queue is currently empty.',
+                colour = discord.Colour.blue()
+            )
+            await ctx.send(embed = embed)
+            return
 
+        queue_list = []
+        for index, track in enumerate(self.queue, 1):
+            formatted_duration = format_duration(track['duration'])
+            queue_list.append(f'{index}. **{track["title"]}** - Duration: {formatted_duration}')
 
+        queue_str = '\n'.join(queue_list)
+        embed = discord.Embed(
+            title = '🎶 Queue',
+            description = queue_str if queue_str else 'No songs in queue.',
+            colour = discord.Colour.blue()
+        )
+        await ctx.send(embed = embed)
+    
+    
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if member.bot:
@@ -139,21 +235,18 @@ class MusicStream(commands.Cog):
         
         if self.voice_client:
             bot_channel = self.voice_client.channel
-
             if before.channel == bot_channel and len(bot_channel.members) == 1:
                 if self.disconnect_timer:
                     self.disconnect_timer.cancel()
-
                 self.disconnect_timer = asyncio.create_task(self.start_disconnect_timer())
             
             elif after.channel == bot_channel and self.disconnect_timer:
                 self.disconnect_timer.cancel()
                 self.disconnect_timer = None
-
+    
     
     async def start_disconnect_timer(self) -> None:
         await asyncio.sleep(30)
-
         if self.voice_client and len(self.voice_client.channel.members) == 1:
             if self.voice_client.is_playing() or self.voice_client.is_paused():
                 self.voice_client.stop()
@@ -162,21 +255,31 @@ class MusicStream(commands.Cog):
             self.voice_client = None
             self.is_playing = False
             self.is_paused = False
-    
+
 
     async def play_next(self, ctx: commands.Context):
-        if len(self.queue) > 0:
+        if self.queue:
             self.current_track = self.queue.pop(0)
-
             source = discord.FFmpegPCMAudio(self.current_track['url'], **ffmpeg_options)
             self.voice_client.play(source, after = lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
             self.is_playing = True
-
-            await ctx.send(f'🎶 Playing: **{self.current_track['title']}** ')
+            
+            formatted_duration = format_duration(self.current_track['duration'])
+            embed = discord.Embed(
+                title = '🎶 Now Playing',
+                description = f'**{self.current_track["title"]}**\nDuration: {formatted_duration}',
+                colour = discord.Colour.purple()
+            )
+            await ctx.send(embed = embed)
         
         else:
             self.is_playing = False
-
+            embed = discord.Embed(
+                title = '🎶 Queue Ended',
+                description = 'No more songs in the queue.',
+                colour = discord.Colour.red()
+            )
+            await ctx.send(embed = embed)
 
 
 async def setup(bot) -> None:
