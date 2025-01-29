@@ -1,5 +1,7 @@
 import discord
 import asyncio
+import ffmpeg
+import yt_dlp
 from rich import print
 from discord.ext import commands
 from discord import app_commands
