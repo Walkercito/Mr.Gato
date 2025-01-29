@@ -21,7 +21,6 @@ class MusicStream(commands.Cog):
             pass
 
 
-
     @commands.hybrid_command(name='join', description='Joins to the current VC you\'re in.')
     async def join_vc(self, ctx: commands.Context):
         await ctx.defer(ephemeral=True)
@@ -42,7 +41,6 @@ class MusicStream(commands.Cog):
             self.voice_client = await channel.connect()
         
         await ctx.send(f'🔊 Connected to **{channel.name}**, use **/play** or **{self.bot.command_prefix}play** followed by the link or the name of a song to start playing!', ephemeral=True)
-    
     
     
     @commands.hybrid_command(name = 'leave', description = 'Takes out the bot of the current VC.')
@@ -74,7 +72,6 @@ class MusicStream(commands.Cog):
             elif after.channel == bot_channel and self.disconnect_timer:
                 self.disconnect_timer.cancel()
                 self.disconnect_timer = None
-
 
     
     async def start_disconnect_timer(self):

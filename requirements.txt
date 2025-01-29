@@ -1,5 +1,7 @@
 discord.py
 discord.py[voice]
+ffmpeg-python
+yt-dlp
 PyNaCl
 python-dotenv
 rich
