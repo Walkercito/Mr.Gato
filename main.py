@@ -1,8 +1,5 @@
-import os
 import discord
-import threading
 from rich import print
-from flask import Flask
 from pathlib import Path
 from discord.ext import commands
 from rich.console import Console
@@ -22,7 +19,7 @@ def main():
     @bot.event
     async def on_ready():
         console.print(f"[bold green]Initialized as {bot.user}[/bold green]")
-        await bot.change_presence(activity=discord.Game(name="with a mouse"))
+        await bot.change_presence(activity = discord.Game(name = "with a mouse"))
 
         for file in Path('cogs').glob('**/*.py'):
             *tree, _ = file.parts
