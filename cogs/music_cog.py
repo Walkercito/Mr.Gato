@@ -35,7 +35,7 @@ class MusicStream(commands.Cog):
     
     async def cog_unload(self):
         if self.disconnect_timer:
-            pass
+            self.disconnect_timer.cancel()
 
 
     @commands.hybrid_command(name='join', description='Joins to the current VC you\'re in.')
@@ -109,6 +109,7 @@ class MusicStream(commands.Cog):
             self.is_paused = True
             await ctx.send('⏸️ Song paused')
 
+
     @commands.hybrid_command(name = 'resume', description = 'Continue playing the current song.')
     async def resume_track(self, ctx: commands.Context):
         if self.voice_client and self.is_paused:
@@ -116,7 +117,6 @@ class MusicStream(commands.Cog):
             self.is_paused = False
             self.is_playing = True
             await ctx.send(f'🎶 Continue playing: **{self.current_track['title']}**.')
-    
 
 
     @commands.hybrid_command(name = 'skip', description = 'Jumps to the next song in the queue.')
@@ -158,7 +158,6 @@ class MusicStream(commands.Cog):
             self.is_paused = False
     
 
-
     async def play_next(self, ctx: commands.Context):
         if len(self.queue) > 0:
             self.current_track = self.queue.pop(0)
@@ -171,7 +170,6 @@ class MusicStream(commands.Cog):
         
         else:
             self.is_playing = False
-
 
 
 
