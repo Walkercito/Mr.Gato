@@ -1,7 +1,8 @@
 discord.py
+discord.py[voice]
+PyNaCl
 python-dotenv
 rich
 db-sqlite3
 pillow
 numpy
-flask
