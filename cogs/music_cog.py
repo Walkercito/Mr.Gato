@@ -14,12 +14,25 @@ console = Console()
 def search_youtube(query: str) -> dict:
     with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ytdl:
         try:
-            if re.match(r'^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+', query, re.IGNORECASE):
+            if re.match(r'^(https?:\\/\\/)?(www\\.)?(youtube\\.com|youtu\\.?be)\\/.+', query, re.IGNORECASE):
                 info = ytdl.extract_info(query, download = False)
-                return info
+                return {
+                    'title': info['title'], 
+                    'url': info['url'], 
+                    'duration': info['duration'], 
+                    'thumbnail': info.get('thumbnail', 'https://via.placeholder.com/150')  # Default placeholder image
+                }
             else:
                 info = ytdl.extract_info(f'ytsearch:{query}', download = False)
-                return info['entries'][0] if info else None
+                if info:
+                    entry = info['entries'][0]
+                    return {
+                        'title': entry['title'], 
+                        'url': entry['url'], 
+                        'duration': entry['duration'], 
+                        'thumbnail': entry.get('thumbnail', 'https://via.placeholder.com/150')  # Default placeholder image
+                    }
+                return None
         
         except yt_dlp.utils.DownloadError as e:
             print(f"[bold red]YouTube Download Error:[/bold red] {e}")
@@ -78,6 +91,8 @@ class MusicStream(commands.Cog):
                 await self.voice_client.move_to(channel)
         else:
             self.voice_client = await channel.connect()
+
+        await self.voice_client.guild.change_voice_state(channel = channel, self_mute = False, self_deaf = True)
         
         embed = discord.Embed(
             title = f'🔊 Connected to {channel.name}',
@@ -118,18 +133,40 @@ class MusicStream(commands.Cog):
             await ctx.send(embed = embed, ephemeral = True)
     
     
-    @commands.hybrid_command(name = 'play', description = 'Starts playing a song or adds one to the queue.')
+    @commands.hybrid_command(name = 'play', description='Starts playing a song or adds one to the queue.')
     @app_commands.describe(song = 'The name or the link of the song you want to listen')
-    async def play_track(self, ctx: commands.Context, song: str):
+    async def play_track(self, ctx: commands.Context, song: str = None):
         await ctx.defer(ephemeral = True)
-        if not ctx.author.voice:
+        
+        if not song:
             embed = discord.Embed(
-                title = '❌ Oops!',
-                description = 'You must be inside of a VC to use this.',
+                title = '❌ Missing Argument',
+                description = 'Please provide a song name or URL.',
                 colour = discord.Colour.red()
             )
             await ctx.send(embed = embed, ephemeral = True)
             return
+
+        if not ctx.author.voice:
+            embed = discord.Embed(
+                title = '❌ Oops!',
+                description = 'You must be inside of a VC to use this.',
+                colour=discord.Colour.red()
+            )
+            await ctx.send(embed = embed, ephemeral = True)
+            return
+
+        if not self.voice_client:
+            channel = ctx.author.voice.channel
+            self.voice_client = await channel.connect()
+            await self.voice_client.guild.change_voice_state(channel = channel, self_mute = False, self_deaf = True)
+            embed = discord.Embed(
+                title = f'🔊 Connected to {channel.name}',
+                description = f'Bot joined the voice channel and will now play your song.',
+                colour = discord.Colour.dark_purple()
+            )
+            await ctx.send(embed = embed, ephemeral = False)
+
         track = search_youtube(song)
         if not track:
             embed = discord.Embed(
@@ -139,13 +176,13 @@ class MusicStream(commands.Cog):
             )
             await ctx.send(embed = embed, ephemeral = True)
             return
-        self.queue.append(
-            {
-                'title': track['title'],
-                'url': track['url'],
-                'duration': track['duration']
-            }
-        )
+
+        self.queue.append({
+            'title': track['title'],
+            'url': track['url'],
+            'duration': track['duration'],
+            'thumbnail': track['thumbnail']
+        })
         formatted_duration = format_duration(track['duration'])
         embed = discord.Embed(
             title = '✅ Added to Queue',
@@ -153,7 +190,7 @@ class MusicStream(commands.Cog):
             colour = discord.Colour.pink()
         )
         await ctx.send(embed = embed)
-        
+
         if not self.is_playing:
             await self.play_next(ctx)
     
@@ -186,6 +223,9 @@ class MusicStream(commands.Cog):
                 description = f'**{self.current_track["title"]}**\nDuration: {formatted_duration}',
                 colour = discord.Colour.purple()
             )
+            thumbnail_url = self.current_track.get('thumbnail', 'https://via.placeholder.com/150')
+            embed.set_thumbnail(url=thumbnail_url)
+            embed.set_footer(text = f'Requested by {ctx.author.name}')
             await ctx.send(embed = embed)
     
     
@@ -225,6 +265,7 @@ class MusicStream(commands.Cog):
             description = queue_str if queue_str else 'No songs in queue.',
             colour = discord.Colour.blue()
         )
+        embed.set_footer(text = f'Number of tracks: {len(self.queue)}')
         await ctx.send(embed = embed)
     
     
@@ -270,6 +311,9 @@ class MusicStream(commands.Cog):
                 description = f'**{self.current_track["title"]}**\nDuration: {formatted_duration}',
                 colour = discord.Colour.purple()
             )
+            thumbnail_url = self.current_track.get('thumbnail', 'https://via.placeholder.com/150')
+            embed.set_thumbnail(url = thumbnail_url)
+            embed.set_footer(text = f'Requested by {ctx.author.name}')
             await ctx.send(embed = embed)
         
         else:
