@@ -308,9 +308,11 @@ class MusicStream(commands.Cog):
             formatted_duration = format_duration(self.current_track['duration'])
             embed = discord.Embed(
                 title = '🎶 Now Playing',
-                description = f'**{self.current_track["title"]}**\nDuration: {formatted_duration}',
+                description = f'[{self.current_track['title']}]({self.current_track['url']})',
                 colour = discord.Colour.purple()
             )
+            embed.add_field(name = 'Duration', value = f'`{formatted_duration}`')
+            embed.add_field(name = 'Queue', value = f'{len(self.queue)}')
             thumbnail_url = self.current_track.get('thumbnail', 'https://via.placeholder.com/150')
             embed.set_thumbnail(url = thumbnail_url)
             embed.set_footer(text = f'Requested by {ctx.author.name}')
